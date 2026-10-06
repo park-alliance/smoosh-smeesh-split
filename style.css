@@ -148,12 +148,18 @@ button {
     width: 20px;
     height: 20px;
     margin-top: 3px;
+    border: none;
     border-radius: 50%;
     background: #fff0cc;
     color: #a4760a;
     font-size: 0.75rem;
     font-weight: 700;
-    text-decoration: none;
+    cursor: pointer;
+    padding: 0;
+}
+
+.unknown-badge:active {
+    background: #ffe3a3;
 }
 
 .confidence-hint {

@@ -2,7 +2,7 @@ import { parseReceipt, extractTaxAmount } from './receipt-parser.js';
 import { computeTotals } from './split-calc.js';
 import {
     loadState, saveState, addManualItem, removeItem,
-    updateItem, assignItem, splitIntoUnits,
+    updateItem, assignItem, splitIntoUnits, deferItem,
 } from './state.js';
 import { loadLookupTable, matchItem, googleLookupUrl } from './item-lookup.js';
 
@@ -25,15 +25,11 @@ function persist() {
 
 function renderItems() {
     itemsEl.innerHTML = '';
-    // Unresolved ("?") items sink to the bottom so the items you can
-    // immediately recognize and assign aren't interleaved with the ones
-    // that still need a "Look it up" detour. Stable sort keeps everything
-    // else in its original order.
-    const sorted = [...state.items].sort((a, b) => {
-        const aUnknown = a.nameConfidence === 'none' && a.itemCode ? 1 : 0;
-        const bUnknown = b.nameConfidence === 'none' && b.itemCode ? 1 : 0;
-        return aUnknown - bUnknown;
-    });
+    // Tapping an unresolved item's "?" badge defers it to the bottom (a
+    // deliberate "come back to this later", not an automatic sort - an
+    // unresolved item stays wherever it is until you actually dismiss it).
+    // Stable sort keeps everything else in its original order.
+    const sorted = [...state.items].sort((a, b) => (a.deferred ? 1 : 0) - (b.deferred ? 1 : 0));
     for (const item of sorted) {
         itemsEl.appendChild(renderItemCard(item));
     }
@@ -62,10 +58,16 @@ function renderItemCard(item) {
     topRow.appendChild(descInput);
 
     if (item.nameConfidence === 'none' && item.itemCode) {
-        const badge = document.createElement('span');
+        const badge = document.createElement('button');
+        badge.type = 'button';
         badge.className = 'unknown-badge';
         badge.textContent = '?';
-        badge.title = 'Couldn\'t auto-identify this item';
+        badge.title = 'Couldn\'t auto-identify this item - tap to come back to it later';
+        badge.addEventListener('click', () => {
+            deferItem(state, item.id);
+            persist();
+            renderAll();
+        });
         topRow.appendChild(badge);
     }
 
@@ -87,7 +89,10 @@ function renderItemCard(item) {
     if (item.nameConfidence === 'fuzzy') {
         const hint = document.createElement('div');
         hint.className = 'confidence-hint';
-        hint.textContent = 'Suggested match - check it\'s right';
+        // The suggested name has already replaced the raw receipt text in
+        // the field above - show the raw text here too, otherwise there's
+        // nothing left to check the suggestion against.
+        hint.textContent = `Suggested for "${item.rawDescription}" - check it's right`;
         card.appendChild(hint);
     } else if (item.nameConfidence === 'none' && item.itemCode) {
         const lookupRow = document.createElement('div');

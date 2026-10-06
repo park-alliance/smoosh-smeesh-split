@@ -51,6 +51,14 @@ export function updateItem(state, id, fields) {
     if (item) Object.assign(item, fields);
 }
 
+// "Come back to this later" - tapping the unresolved-item badge sends it
+// to the bottom of the list instead of making the user scroll past it
+// repeatedly while they work through the ones they can recognize.
+export function deferItem(state, id) {
+    const item = state.items.find(i => i.id === id);
+    if (item) item.deferred = true;
+}
+
 export function assignItem(state, id, assignment) {
     const item = state.items.find(i => i.id === id);
     if (item) item.assignment = assignment;
