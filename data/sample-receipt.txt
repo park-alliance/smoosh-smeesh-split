@@ -1,0 +1,11 @@
+E 96716 KS WATER 40CT          15.99
+E 1234567 ORG SPINACH          4.49
+2 @ 3.99
+E 1234567 3.00-
+E 784512 KS CHKN BRST          21.99
+A 998877 TIDE 110OZ            19.89
+E 554433 ROTIS CHICKEN         7.99
+SUBTOTAL                       66.35
+TAX                             3.10
+TOTAL                          69.45
+****** 1234 VISA PURCHASE

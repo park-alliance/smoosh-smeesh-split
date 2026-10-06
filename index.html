@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+    <title>Smoosh & Smeesh Split</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app-shell">
+        <header>
+            <h1>Smoosh &amp; Smeesh Split</h1>
+        </header>
+
+        <main>
+            <div class="toolbar">
+                <button id="load-sample-btn" class="primary-btn">Load Sample Receipt</button>
+                <label class="tax-label">Tax
+                    <input type="number" id="tax-input" step="0.01" value="0">
+                </label>
+            </div>
+
+            <div id="unknown-list" class="unknown-list hidden"></div>
+
+            <div id="items-list" class="items-list"></div>
+
+            <button id="add-item-btn" class="ghost-btn">+ Add item</button>
+        </main>
+
+        <footer id="totals" class="totals">
+            Add items to see the split.
+        </footer>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
