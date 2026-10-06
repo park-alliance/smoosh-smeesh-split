@@ -187,6 +187,16 @@ button {
     text-decoration: none;
 }
 
+.scan-status {
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #eef6ff;
+    color: #2e5fa3;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
 .item-price {
     width: 72px;
     border: 1px solid var(--border);

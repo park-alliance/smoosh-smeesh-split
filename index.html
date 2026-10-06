@@ -14,11 +14,15 @@
 
         <main>
             <div class="toolbar">
-                <button id="load-sample-btn" class="primary-btn">Load Sample Receipt</button>
+                <button id="scan-receipt-btn" class="primary-btn">Scan Receipt</button>
+                <input type="file" id="receipt-photo-input" accept="image/*" capture="environment" class="hidden">
                 <label class="tax-label">Tax
                     <input type="number" id="tax-input" step="0.01" value="0">
                 </label>
             </div>
+            <button id="load-sample-btn" class="ghost-btn">Load Sample Receipt (dev)</button>
+
+            <div id="scan-status" class="scan-status hidden"></div>
 
             <div id="unknown-list" class="unknown-list hidden"></div>
 
@@ -32,6 +36,7 @@
         </footer>
     </div>
 
+    <script src="vendor/tesseract/tesseract.min.js"></script>
     <script type="module" src="app.js"></script>
 </body>
 </html>

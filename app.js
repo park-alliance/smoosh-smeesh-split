@@ -5,6 +5,7 @@ import {
     updateItem, assignItem, splitIntoUnits, deferItem,
 } from './state.js';
 import { loadLookupTable, matchItem, googleLookupUrl } from './item-lookup.js';
+import { recognizeReceiptImage } from './ocr.js';
 
 const ICON_MAGNIFIER = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
 
@@ -16,6 +17,9 @@ const totalsEl = document.getElementById('totals');
 const taxInput = document.getElementById('tax-input');
 const addItemBtn = document.getElementById('add-item-btn');
 const loadSampleBtn = document.getElementById('load-sample-btn');
+const scanReceiptBtn = document.getElementById('scan-receipt-btn');
+const receiptPhotoInput = document.getElementById('receipt-photo-input');
+const scanStatusEl = document.getElementById('scan-status');
 
 taxInput.value = state.taxAmount || 0;
 
@@ -264,9 +268,7 @@ async function applyLookup(items) {
     }
 }
 
-loadSampleBtn.addEventListener('click', async () => {
-    const res = await fetch('./data/sample-receipt.txt');
-    const text = await res.text();
+async function loadReceiptText(text) {
     const { items, excluded, unknown } = parseReceipt(text);
     await applyLookup(items);
     state.items = items;
@@ -275,6 +277,52 @@ loadSampleBtn.addEventListener('click', async () => {
     taxInput.value = state.taxAmount;
     persist();
     renderAll();
+}
+
+loadSampleBtn.addEventListener('click', async () => {
+    const res = await fetch('./data/sample-receipt.txt');
+    const text = await res.text();
+    await loadReceiptText(text);
+});
+
+function setScanStatus(text) {
+    if (text) {
+        scanStatusEl.textContent = text;
+        scanStatusEl.classList.remove('hidden');
+    } else {
+        scanStatusEl.classList.add('hidden');
+    }
+}
+
+scanReceiptBtn.addEventListener('click', () => {
+    receiptPhotoInput.click();
+});
+
+receiptPhotoInput.addEventListener('change', async () => {
+    const file = receiptPhotoInput.files[0];
+    receiptPhotoInput.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+
+    scanReceiptBtn.disabled = true;
+    setScanStatus('Reading receipt...');
+    try {
+        const text = await recognizeReceiptImage(file, (data) => {
+            if (data.status === 'recognizing text') {
+                setScanStatus(`Reading receipt... ${Math.round(data.progress * 100)}%`);
+            } else {
+                setScanStatus(data.status);
+            }
+        });
+        await loadReceiptText(text);
+    } catch (e) {
+        console.error('OCR failed', e);
+        setScanStatus('Could not read that photo - try again or use "Load Sample Receipt" to test.');
+        setTimeout(() => setScanStatus(null), 4000);
+        return;
+    } finally {
+        scanReceiptBtn.disabled = false;
+    }
+    setScanStatus(null);
 });
 
 taxInput.addEventListener('input', () => {
