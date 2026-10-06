@@ -140,6 +140,17 @@ button {
     padding: 4px 2px;
 }
 
+.confidence-hint {
+    font-size: 0.74rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+    padding: 0 2px;
+}
+
+.confidence-hint a {
+    color: var(--accent);
+}
+
 .item-price {
     width: 72px;
     border: 1px solid var(--border);

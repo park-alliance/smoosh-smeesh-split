@@ -4,6 +4,7 @@ import {
     loadState, saveState, addManualItem, removeItem,
     updateItem, assignItem, splitIntoUnits,
 } from './state.js';
+import { loadLookupTable, matchItem, googleLookupUrl } from './item-lookup.js';
 
 const state = loadState();
 
@@ -59,6 +60,25 @@ function renderItemCard(item) {
     topRow.appendChild(descInput);
     topRow.appendChild(priceInput);
     card.appendChild(topRow);
+
+    if (item.nameConfidence === 'fuzzy') {
+        const hint = document.createElement('div');
+        hint.className = 'confidence-hint';
+        hint.textContent = 'Suggested match - check it\'s right';
+        card.appendChild(hint);
+    } else if (item.nameConfidence === 'none' && item.itemCode) {
+        const hint = document.createElement('div');
+        hint.className = 'confidence-hint';
+        const link = document.createElement('a');
+        link.href = googleLookupUrl(item.rawDescription);
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'Look it up';
+        hint.appendChild(document.createTextNode('Couldn\'t identify this item - '));
+        hint.appendChild(link);
+        hint.appendChild(document.createTextNode(', then edit the name above'));
+        card.appendChild(hint);
+    }
 
     if (item.quantity > 1) {
         const qtyRow = document.createElement('div');
@@ -203,10 +223,25 @@ addItemBtn.addEventListener('click', () => {
     renderAll();
 });
 
+async function applyLookup(items) {
+    const lookup = await loadLookupTable();
+    for (const item of items) {
+        const match = matchItem(lookup, {
+            itemCode: item.itemCode,
+            rawDescription: item.rawDescription,
+        });
+        item.nameConfidence = match.confidence;
+        if (match.confidence !== 'none') {
+            item.displayName = match.name;
+        }
+    }
+}
+
 loadSampleBtn.addEventListener('click', async () => {
     const res = await fetch('./data/sample-receipt.txt');
     const text = await res.text();
     const { items, excluded, unknown } = parseReceipt(text);
+    await applyLookup(items);
     state.items = items;
     state.unknownLines = unknown;
     state.taxAmount = extractTaxAmount(excluded);
