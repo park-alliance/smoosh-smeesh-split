@@ -23,7 +23,16 @@ function persist() {
 
 function renderItems() {
     itemsEl.innerHTML = '';
-    for (const item of state.items) {
+    // Unresolved ("?") items sink to the bottom so the items you can
+    // immediately recognize and assign aren't interleaved with the ones
+    // that still need a "Look it up" detour. Stable sort keeps everything
+    // else in its original order.
+    const sorted = [...state.items].sort((a, b) => {
+        const aUnknown = a.nameConfidence === 'none' && a.itemCode ? 1 : 0;
+        const bUnknown = b.nameConfidence === 'none' && b.itemCode ? 1 : 0;
+        return aUnknown - bUnknown;
+    });
+    for (const item of sorted) {
         itemsEl.appendChild(renderItemCard(item));
     }
 }
@@ -41,9 +50,25 @@ function renderItemCard(item) {
     descInput.className = 'item-desc';
     descInput.value = item.displayName;
     descInput.addEventListener('input', () => {
-        updateItem(state, item.id, { displayName: descInput.value });
+        // Typing a correction means the name is resolved now - drop the
+        // "unknown" badge and let it re-sort out of the unresolved group
+        // on the next structural render.
+        updateItem(state, item.id, { displayName: descInput.value, nameConfidence: 'manual' });
         persist();
     });
+
+    topRow.appendChild(descInput);
+
+    if (item.nameConfidence === 'none' && item.itemCode) {
+        const badge = document.createElement('a');
+        badge.className = 'unknown-badge';
+        badge.href = googleLookupUrl(item.rawDescription);
+        badge.target = '_blank';
+        badge.rel = 'noopener noreferrer';
+        badge.textContent = '?';
+        badge.title = 'Couldn\'t auto-identify this item - tap to look it up';
+        topRow.appendChild(badge);
+    }
 
     const priceInput = document.createElement('input');
     priceInput.type = 'number';
@@ -57,7 +82,6 @@ function renderItemCard(item) {
         renderTotals();
     });
 
-    topRow.appendChild(descInput);
     topRow.appendChild(priceInput);
     card.appendChild(topRow);
 
@@ -65,18 +89,6 @@ function renderItemCard(item) {
         const hint = document.createElement('div');
         hint.className = 'confidence-hint';
         hint.textContent = 'Suggested match - check it\'s right';
-        card.appendChild(hint);
-    } else if (item.nameConfidence === 'none' && item.itemCode) {
-        const hint = document.createElement('div');
-        hint.className = 'confidence-hint';
-        const link = document.createElement('a');
-        link.href = googleLookupUrl(item.rawDescription);
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.textContent = 'Look it up';
-        hint.appendChild(document.createTextNode('Couldn\'t identify this item - '));
-        hint.appendChild(link);
-        hint.appendChild(document.createTextNode(', then edit the name above'));
         card.appendChild(hint);
     }
 
