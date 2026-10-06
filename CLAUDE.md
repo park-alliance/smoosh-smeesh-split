@@ -6,7 +6,7 @@ get a final total. Pure arithmetic - no bank integration.
 
 ## Accounts / Repo
 
-- GitHub: `josephvanacore-del/smoosh-smeesh-split`, branch `master`
+- GitHub: `park-alliance/smoosh-smeesh-split`, branch `master`
 - No backend, no login, no database, no paid API calls of any kind
 - No persistence requirement across sessions - `sessionStorage` only
   (survives an accidental tab switch, not closing the app)
