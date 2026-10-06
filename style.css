@@ -222,18 +222,11 @@ button {
     width: 20px;
     height: 20px;
     margin-top: 3px;
-    border: none;
     border-radius: 50%;
     background: #fff0cc;
     color: #a4760a;
     font-size: 0.75rem;
     font-weight: 700;
-    cursor: pointer;
-    padding: 0;
-}
-
-.unknown-badge:active {
-    background: #ffe3a3;
 }
 
 .confidence-hint {
@@ -269,6 +262,16 @@ button {
     color: #2e5fa3;
     font-size: 0.85rem;
     text-align: center;
+}
+
+.backcheck {
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #fff0e6;
+    border: 1px solid #f5c7a3;
+    color: #a4480a;
+    font-size: 0.82rem;
 }
 
 .item-price {

@@ -1,23 +1,25 @@
-import { parseReceipt, extractTaxAmount } from './receipt-parser.js';
+import { parseReceipt, extractTaxAmount, extractTotalAmount, extractItemCount } from './receipt-parser.js';
 import { computeTotals } from './split-calc.js';
 import {
     loadState, saveState, addManualItem, removeItem,
-    updateItem, assignItem, splitIntoUnits, deferItem,
+    updateItem, assignItem, splitIntoUnits,
 } from './state.js';
 import { loadLookupTable, matchItem, googleLookupUrl } from './item-lookup.js';
 import { recognizeReceiptImage } from './ocr.js';
-import { attachSwipeGesture } from './swipe-card.js';
+// Tinder-style swipe-card.js is still here, just not wired in right now -
+// turned out confusing in practice, reverted to a plain in-order list so
+// items can be checked back and forth against the physical receipt. Easy
+// to re-enable later (see swipe-card.js and git history for how it was
+// wired into renderItemCard/renderStack).
 
 const ICON_MAGNIFIER = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
 
 const state = loadState();
 
 const itemsEl = document.getElementById('items-list');
-const stackEl = document.getElementById('swipe-stack');
-const stackRemainingEl = document.getElementById('stack-remaining');
 const emptyStateEl = document.getElementById('empty-state');
-const decidedHeadingEl = document.getElementById('decided-heading');
 const unknownEl = document.getElementById('unknown-list');
+const backcheckEl = document.getElementById('backcheck');
 const totalsEl = document.getElementById('totals');
 const taxInput = document.getElementById('tax-input');
 const addItemBtn = document.getElementById('add-item-btn');
@@ -33,57 +35,17 @@ function persist() {
 }
 
 function renderItems() {
-    // Tapping an unresolved item's "?" badge defers it to the bottom (a
-    // deliberate "come back to this later", not an automatic sort - an
-    // unresolved item stays wherever it is until you actually dismiss it).
-    // Stable sort keeps everything else in its original order.
-    const sorted = [...state.items].sort((a, b) => (a.deferred ? 1 : 0) - (b.deferred ? 1 : 0));
-    const undecided = sorted.filter(i => !i.assignment);
-    const decided = sorted.filter(i => i.assignment);
-
-    renderStack(undecided);
-
+    // Plain in-order list, same order the receipt parsed in - so you can
+    // check items back and forth against the physical receipt instead of
+    // hunting for them in a reshuffled or one-at-a-time view.
     itemsEl.innerHTML = '';
-    for (const item of decided) {
+    for (const item of state.items) {
         itemsEl.appendChild(renderItemCard(item));
     }
-    decidedHeadingEl.classList.toggle('hidden', decided.length === 0);
-
     emptyStateEl.classList.toggle('hidden', state.items.length > 0);
 }
 
-function renderStack(undecided) {
-    stackEl.innerHTML = '';
-
-    if (undecided.length === 0) {
-        stackEl.classList.add('hidden');
-        stackRemainingEl.classList.add('hidden');
-        return;
-    }
-
-    stackEl.classList.remove('hidden');
-
-    // Peek cards (non-interactive, decorative depth cue) behind the active
-    // one, furthest first so the nearer one paints on top.
-    for (let i = Math.min(2, undecided.length - 1); i >= 1; i--) {
-        const peekCard = renderItemCard(undecided[i]);
-        peekCard.classList.add('stack-peek', `peek-${i}`);
-        stackEl.appendChild(peekCard);
-    }
-
-    const activeCard = renderItemCard(undecided[0], { swipeable: true });
-    activeCard.classList.add('stack-active');
-    stackEl.appendChild(activeCard);
-
-    if (undecided.length > 1) {
-        stackRemainingEl.textContent = `${undecided.length - 1} more to go`;
-        stackRemainingEl.classList.remove('hidden');
-    } else {
-        stackRemainingEl.classList.add('hidden');
-    }
-}
-
-function renderItemCard(item, { swipeable = false } = {}) {
+function renderItemCard(item) {
     const card = document.createElement('div');
     card.className = 'item-card';
     if (item.assignment) card.classList.add(`assigned-${item.assignment.toLowerCase()}`);
@@ -97,8 +59,7 @@ function renderItemCard(item, { swipeable = false } = {}) {
     descInput.value = item.displayName;
     descInput.addEventListener('input', () => {
         // Typing a correction means the name is resolved now - drop the
-        // "unknown" badge and let it re-sort out of the unresolved group
-        // on the next structural render.
+        // "unknown" badge.
         updateItem(state, item.id, { displayName: descInput.value, nameConfidence: 'manual' });
         persist();
     });
@@ -106,16 +67,10 @@ function renderItemCard(item, { swipeable = false } = {}) {
     topRow.appendChild(descInput);
 
     if (item.nameConfidence === 'none' && item.itemCode) {
-        const badge = document.createElement('button');
-        badge.type = 'button';
+        const badge = document.createElement('span');
         badge.className = 'unknown-badge';
         badge.textContent = '?';
-        badge.title = 'Couldn\'t auto-identify this item - tap to come back to it later';
-        badge.addEventListener('click', () => {
-            deferItem(state, item.id);
-            persist();
-            renderAll();
-        });
+        badge.title = 'Couldn\'t auto-identify this item';
         topRow.appendChild(badge);
     }
 
@@ -171,24 +126,12 @@ function renderItemCard(item, { swipeable = false } = {}) {
         card.appendChild(qtyRow);
     }
 
-    // Only the single active (top of stack) card gets the drag gesture -
-    // peek cards and the decided list below stay plain.
-    const swipeCtrl = swipeable
-        ? attachSwipeGesture(card, {
-            onDecide: (decision) => {
-                assignItem(state, item.id, decision);
-                persist();
-                renderAll();
-            },
-        })
-        : null;
-
     const actionsRow = document.createElement('div');
     actionsRow.className = 'item-actions-row';
 
-    const smooshBtn = makeAssignButton('Smoosh', 'SMOOSH', item, swipeCtrl);
-    const splitBtn = makeAssignButton('Split', 'SPLIT', item, swipeCtrl);
-    const smeeshBtn = makeAssignButton('Smeesh', 'SMEESH', item, swipeCtrl);
+    const smooshBtn = makeAssignButton('Smoosh', 'SMOOSH', item);
+    const splitBtn = makeAssignButton('Split', 'SPLIT', item);
+    const smeeshBtn = makeAssignButton('Smeesh', 'SMEESH', item);
     actionsRow.appendChild(smooshBtn);
     actionsRow.appendChild(splitBtn);
     actionsRow.appendChild(smeeshBtn);
@@ -208,18 +151,12 @@ function renderItemCard(item, { swipeable = false } = {}) {
     return card;
 }
 
-function makeAssignButton(label, value, item, swipeCtrl) {
+function makeAssignButton(label, value, item) {
     const btn = document.createElement('button');
     btn.className = 'assign-btn';
     btn.textContent = label;
     if (item.assignment === value) btn.classList.add('active');
     btn.addEventListener('click', () => {
-        if (swipeCtrl) {
-            // Play the same fly-off animation a real swipe would, so the
-            // button and the gesture feel like the same action.
-            swipeCtrl.triggerDecision(value);
-            return;
-        }
         assignItem(state, item.id, item.assignment === value ? null : value);
         persist();
         renderAll();
@@ -304,10 +241,47 @@ function renderTotals() {
     totalsEl.appendChild(row);
 }
 
+// Flags "this doesn't add up" against the receipt's own printed total and
+// item count - the signal that catches an OCR failure that otherwise
+// looks like nothing happened (a line whose price was silently dropped
+// entirely, rather than left as a visible gap). Tolerant of a couple
+// cents of rounding noise; anything beyond that gets called out so the
+// user knows to double-check the list instead of trusting it blindly.
+function renderBackcheck() {
+    const { receiptTotalAmount, receiptItemCount } = state;
+    if (receiptTotalAmount == null && receiptItemCount == null) {
+        backcheckEl.classList.add('hidden');
+        return;
+    }
+
+    const problems = [];
+
+    if (receiptItemCount != null && state.items.length !== receiptItemCount) {
+        problems.push(`Receipt says ${receiptItemCount} items sold, but ${state.items.length} were parsed.`);
+    }
+
+    if (receiptTotalAmount != null) {
+        const parsedSum = state.items.reduce((sum, i) => sum + i.totalPrice, 0);
+        const parsedTotal = Math.round((parsedSum + (state.taxAmount || 0)) * 100) / 100;
+        if (Math.abs(parsedTotal - receiptTotalAmount) > 0.02) {
+            problems.push(`Parsed total $${parsedTotal.toFixed(2)} doesn't match the receipt's $${receiptTotalAmount.toFixed(2)}.`);
+        }
+    }
+
+    if (problems.length === 0) {
+        backcheckEl.classList.add('hidden');
+        return;
+    }
+
+    backcheckEl.textContent = `${problems.join(' ')} Some lines may be missing or misread - check the list below.`;
+    backcheckEl.classList.remove('hidden');
+}
+
 function renderAll() {
     renderItems();
     renderUnknown();
     renderTotals();
+    renderBackcheck();
 }
 
 addItemBtn.addEventListener('click', () => {
@@ -336,6 +310,13 @@ async function loadReceiptText(text) {
     state.items = items;
     state.unknownLines = unknown;
     state.taxAmount = extractTaxAmount(excluded);
+    // The receipt's own printed total/item-count, kept around purely to
+    // flag "this doesn't add up" (e.g. OCR silently dropped a price
+    // entirely, like a line that never even shows a dollar amount) - not
+    // used for anything else, and cleared once the receipt no longer
+    // matches what's on screen (see updateItem/removeItem/addManualItem).
+    state.receiptTotalAmount = extractTotalAmount(excluded);
+    state.receiptItemCount = extractItemCount(excluded);
     taxInput.value = state.taxAmount;
     persist();
     renderAll();
