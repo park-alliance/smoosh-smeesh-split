@@ -6,12 +6,17 @@ import {
 } from './state.js';
 import { loadLookupTable, matchItem, googleLookupUrl } from './item-lookup.js';
 import { recognizeReceiptImage } from './ocr.js';
+import { attachSwipeGesture } from './swipe-card.js';
 
 const ICON_MAGNIFIER = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
 
 const state = loadState();
 
 const itemsEl = document.getElementById('items-list');
+const stackEl = document.getElementById('swipe-stack');
+const stackRemainingEl = document.getElementById('stack-remaining');
+const emptyStateEl = document.getElementById('empty-state');
+const decidedHeadingEl = document.getElementById('decided-heading');
 const unknownEl = document.getElementById('unknown-list');
 const totalsEl = document.getElementById('totals');
 const taxInput = document.getElementById('tax-input');
@@ -28,18 +33,57 @@ function persist() {
 }
 
 function renderItems() {
-    itemsEl.innerHTML = '';
     // Tapping an unresolved item's "?" badge defers it to the bottom (a
     // deliberate "come back to this later", not an automatic sort - an
     // unresolved item stays wherever it is until you actually dismiss it).
     // Stable sort keeps everything else in its original order.
     const sorted = [...state.items].sort((a, b) => (a.deferred ? 1 : 0) - (b.deferred ? 1 : 0));
-    for (const item of sorted) {
+    const undecided = sorted.filter(i => !i.assignment);
+    const decided = sorted.filter(i => i.assignment);
+
+    renderStack(undecided);
+
+    itemsEl.innerHTML = '';
+    for (const item of decided) {
         itemsEl.appendChild(renderItemCard(item));
+    }
+    decidedHeadingEl.classList.toggle('hidden', decided.length === 0);
+
+    emptyStateEl.classList.toggle('hidden', state.items.length > 0);
+}
+
+function renderStack(undecided) {
+    stackEl.innerHTML = '';
+
+    if (undecided.length === 0) {
+        stackEl.classList.add('hidden');
+        stackRemainingEl.classList.add('hidden');
+        return;
+    }
+
+    stackEl.classList.remove('hidden');
+
+    // Peek cards (non-interactive, decorative depth cue) behind the active
+    // one, furthest first so the nearer one paints on top.
+    for (let i = Math.min(2, undecided.length - 1); i >= 1; i--) {
+        const peekCard = renderItemCard(undecided[i]);
+        peekCard.classList.add('stack-peek', `peek-${i}`);
+        stackEl.appendChild(peekCard);
+    }
+
+    const activeCard = renderItemCard(undecided[0], { swipeable: true });
+    activeCard.classList.add('stack-active');
+    stackEl.appendChild(activeCard);
+
+    if (undecided.length > 1) {
+        stackRemainingEl.textContent = `${undecided.length - 1} more to go`;
+        stackRemainingEl.classList.remove('hidden');
+    } else {
+        stackRemainingEl.classList.add('hidden');
     }
 }
 
-function renderItemCard(item) {
+function renderItemCard(item, { swipeable = false } = {}) {
     const card = document.createElement('div');
     card.className = 'item-card';
     if (item.assignment) card.classList.add(`assigned-${item.assignment.toLowerCase()}`);
@@ -127,12 +171,24 @@ function renderItemCard(item) {
         card.appendChild(qtyRow);
     }
 
+    // Only the single active (top of stack) card gets the drag gesture -
+    // peek cards and the decided list below stay plain.
+    const swipeCtrl = swipeable
+        ? attachSwipeGesture(card, {
+            onDecide: (decision) => {
+                assignItem(state, item.id, decision);
+                persist();
+                renderAll();
+            },
+        })
+        : null;
+
     const actionsRow = document.createElement('div');
     actionsRow.className = 'item-actions-row';
 
-    const smooshBtn = makeAssignButton('Smoosh', 'SMOOSH', item, actionsRow);
-    const splitBtn = makeAssignButton('Split', 'SPLIT', item, actionsRow);
-    const smeeshBtn = makeAssignButton('Smeesh', 'SMEESH', item, actionsRow);
+    const smooshBtn = makeAssignButton('Smoosh', 'SMOOSH', item, swipeCtrl);
+    const splitBtn = makeAssignButton('Split', 'SPLIT', item, swipeCtrl);
+    const smeeshBtn = makeAssignButton('Smeesh', 'SMEESH', item, swipeCtrl);
     actionsRow.appendChild(smooshBtn);
     actionsRow.appendChild(splitBtn);
     actionsRow.appendChild(smeeshBtn);
@@ -152,12 +208,18 @@ function renderItemCard(item) {
     return card;
 }
 
-function makeAssignButton(label, value, item, row) {
+function makeAssignButton(label, value, item, swipeCtrl) {
     const btn = document.createElement('button');
     btn.className = 'assign-btn';
     btn.textContent = label;
     if (item.assignment === value) btn.classList.add('active');
     btn.addEventListener('click', () => {
+        if (swipeCtrl) {
+            // Play the same fly-off animation a real swipe would, so the
+            // button and the gesture feel like the same action.
+            swipeCtrl.triggerDecision(value);
+            return;
+        }
         assignItem(state, item.id, item.assignment === value ? null : value);
         persist();
         renderAll();

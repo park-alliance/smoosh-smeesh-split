@@ -127,6 +127,80 @@ button {
     border-color: var(--accent);
 }
 
+.swipe-stack {
+    position: relative;
+    margin-bottom: 6px;
+}
+
+.swipe-stack .item-card {
+    background: var(--card-bg);
+}
+
+.swipe-stack .stack-peek {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+}
+
+.swipe-stack .stack-peek.peek-1 {
+    transform: scale(0.97) translateY(8px);
+    opacity: 0.7;
+    z-index: 1;
+}
+
+.swipe-stack .stack-peek.peek-2 {
+    transform: scale(0.94) translateY(14px);
+    opacity: 0.4;
+    z-index: 0;
+}
+
+.swipe-stack .stack-active {
+    position: relative;
+    z-index: 2;
+    touch-action: none;
+    cursor: grab;
+    user-select: none;
+}
+
+.swipe-stack .stack-active.dragging {
+    cursor: grabbing;
+}
+
+.swipe-stack .stack-active.swipe-smoosh {
+    box-shadow: 0 0 0 3px var(--accent-smoosh);
+}
+
+.swipe-stack .stack-active.swipe-smeesh {
+    box-shadow: 0 0 0 3px var(--accent-smeesh);
+}
+
+.swipe-stack .stack-active.swipe-split {
+    box-shadow: 0 0 0 3px var(--accent);
+}
+
+.stack-remaining {
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+}
+
+.empty-state {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    padding: 24px 12px;
+}
+
+.section-heading {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin: 4px 0 8px;
+    font-weight: 600;
+}
+
 .item-top-row {
     display: flex;
     gap: 8px;
