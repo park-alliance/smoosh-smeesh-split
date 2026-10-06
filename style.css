@@ -167,6 +167,20 @@ button {
     color: var(--accent);
 }
 
+.lookup-row {
+    margin-top: 2px;
+    padding: 0 2px;
+}
+
+.lookup-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--accent);
+    font-size: 0.78rem;
+    text-decoration: none;
+}
+
 .item-price {
     width: 72px;
     border: 1px solid var(--border);

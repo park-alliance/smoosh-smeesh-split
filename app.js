@@ -6,6 +6,8 @@ import {
 } from './state.js';
 import { loadLookupTable, matchItem, googleLookupUrl } from './item-lookup.js';
 
+const ICON_MAGNIFIER = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
+
 const state = loadState();
 
 const itemsEl = document.getElementById('items-list');
@@ -60,13 +62,10 @@ function renderItemCard(item) {
     topRow.appendChild(descInput);
 
     if (item.nameConfidence === 'none' && item.itemCode) {
-        const badge = document.createElement('a');
+        const badge = document.createElement('span');
         badge.className = 'unknown-badge';
-        badge.href = googleLookupUrl(item.rawDescription);
-        badge.target = '_blank';
-        badge.rel = 'noopener noreferrer';
         badge.textContent = '?';
-        badge.title = 'Couldn\'t auto-identify this item - tap to look it up';
+        badge.title = 'Couldn\'t auto-identify this item';
         topRow.appendChild(badge);
     }
 
@@ -90,6 +89,17 @@ function renderItemCard(item) {
         hint.className = 'confidence-hint';
         hint.textContent = 'Suggested match - check it\'s right';
         card.appendChild(hint);
+    } else if (item.nameConfidence === 'none' && item.itemCode) {
+        const lookupRow = document.createElement('div');
+        lookupRow.className = 'lookup-row';
+        const link = document.createElement('a');
+        link.className = 'lookup-link';
+        link.href = googleLookupUrl(item.rawDescription);
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.innerHTML = `${ICON_MAGNIFIER} Look up online`;
+        lookupRow.appendChild(link);
+        card.appendChild(lookupRow);
     }
 
     if (item.quantity > 1) {
