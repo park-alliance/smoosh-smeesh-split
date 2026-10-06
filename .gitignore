@@ -1,1 +1,11 @@
 server.log
+
+# Real receipt photos (PII: name, member number, address) and scratch
+# test files used for debugging the parser against real OCR output -
+# never belongs in this public repo.
+data/image-*.webp
+data/image-*.png
+data/image-*.jpg
+*-tmp.webp
+*-tmp.png
+*-tmp.txt
