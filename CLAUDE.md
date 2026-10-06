@@ -22,14 +22,19 @@ sibling `workout-tracker-app` repo:
 - `receipt-parser.js` - pure function, OCR/pasted text -> classified items
   (no DOM, no OCR dependency - testable with a plain string via Node)
 - `split-calc.js` - pure arithmetic, items + tax -> each person's total
-- `item-lookup.js` (planned) - item-code/text match against
-  `data/item-lookup.json`
-- `ocr.js` (planned) - Tesseract.js wrapper
-- `swipe-card.js` (planned) - swipe gesture + buttons for Smoosh/Split/Smeesh
-- `data/sample-receipt.txt` - hardcoded sample text used to develop/test
-  the parser and split math without needing OCR or a camera
-- `scripts/scrape_costco_items.py` (planned) - one-off script that builds
-  `data/item-lookup.json`, run manually, not at app runtime
+- `item-lookup.js` - item-code exact match + fuzzy text match against
+  `data/item-lookup.json` (398 scraped items, partial coverage by design)
+- `ocr.js` - thin wrapper around the vendored Tesseract.js build
+  (`vendor/tesseract/`); see "OCR" below before touching its options
+- `swipe-card.js` (planned, Milestone 4) - swipe gesture + buttons for
+  Smoosh/Split/Smeesh, replacing the current flat list
+- `data/sample-receipt.txt` - hardcoded sample text, still used by the
+  "Load Sample Receipt" dev button for testing without a camera/photo
+- `scripts/scrape_costco_items.py` - one-off script that built
+  `data/item-lookup.json`, run manually, not at app runtime (robots.txt
+  checked, rate-limited, only touches costco.com's sitemap + plain product
+  pages - never its category/search browsing, which sits behind Kasada
+  bot-mitigation)
 
 Full build plan and milestone order: see the plan this was built from if
 still present, otherwise this file is the source of truth going forward.
@@ -45,13 +50,29 @@ still present, otherwise this file is the source of truth going forward.
   by a one-off scraper script) with a "Look it up" Google-search linkout +
   manual inline edit as the deliberate fallback for unmatched items -
   partial coverage is expected, not a bug.
-- OCR is fully client-side (Tesseract.js), cached offline after first use.
+- OCR is fully client-side (Tesseract.js), vendored same-origin (not
+  loaded from Tesseract's default CDN) so it works offline once the
+  service worker caches it (Milestone 5 - not done yet, so OCR currently
+  still needs a network connection for its first-ever run on a device).
 - Manual add/edit/delete on every item card is a first-class feature, not
   just a fallback - both OCR and the parser will sometimes miss or
   mis-split a line.
 - The totals screen is gated: it shows "N items still need a decision"
   instead of totals while anything is unassigned, so a missed line never
   silently drops someone's cost.
+
+## OCR (`ocr.js`, `vendor/tesseract/`)
+
+Vendored rather than CDN-loaded: main lib + worker script + one WASM core
+variant (SIMD+LSTM, the fast/modern combo - no legacy or non-SIMD
+fallback vendored) + English trained data, ~6MB total. `workerBlobURL:
+false` is required in the `createWorker` options - Tesseract.js's default
+loads the worker via a Blob URL, which breaks the WASM core's own
+relative fetch of its `.wasm` file (a blob: URL has no real path for a
+bare filename to resolve against). Found this by testing OCR end-to-end
+against a synthetic image before trusting the wiring - don't skip that
+kind of check if you touch these options, the failure mode is a silent
+hang, not a thrown error at the call site.
 
 ## Money math (`split-calc.js`)
 
